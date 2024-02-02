@@ -1,64 +1,73 @@
-import { variant } from "../models/varient.models.js";
+import { Product } from "../models/product.models.js";
+import { variant } from "../models/variant.models.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/Apiresponse.js";
-import { asynchandling } from "../utils/Asynchandler.js";
+import { asyncHandling } from "../utils/Asynchandler.js";
 
-//add varient
-const addVariant = asynchandling(async (req, res) => {
+const validateVariantData = (name, sku, additional_cost, stock_count) => {
+  if (!(name && sku && additional_cost && stock_count)) {
+    throw new ApiError(401, "All fields are required");
+  }
+};
+
+const addVariant = asyncHandling(async (req, res) => {
+  const { productId } = req.params;
   const { name, sku, additional_cost, stock_count } = req.body;
-  if (!(name || sku || additional_cost || stock_count)) {
-    throw new ApiError(401, "All fields Are required");
-  }
-  const data = await variant.find({
-    $or: [{ name }, { sku }],
-  });
-  if (data) {
-    throw new ApiError(400, "variant with same name and sku alredy exists");
-  }
-  // Create variant
+  const product = await Product.findById(productId);
+  if (!product) throw new ApiError(400, "Product not found");
+
+  validateVariantData(name, sku, additional_cost, stock_count);
+
+  const existingVariant = await variant.findOne({ $or: [{ name }, { sku }] });
+  if (existingVariant)
+    throw new ApiError(400, "Variant with same name or SKU already exists");
+
   const newVariant = await variant.create({
     name,
     sku,
     additional_cost,
     stock_count,
   });
-  const finde = await variant.findById(newVariant?._id);
+  product.variant.push(newVariant._id);
+  await product.save();
 
-  if (!finde) {
-    throw new ApiError(
-      400,
-      "something went wrong while adding the variant please try again"
-    );
-  }
-  return res
+  res
     .status(200)
-    .json(new ApiResponse(200, finde, "variant addedd successfully"));
+    .json(new ApiResponse(200, newVariant, "Variant added successfully"));
 });
-//get varient
-const getVariant = asynchandling(async (req, res) => {
+
+const getVariant = asyncHandling(async (req, res) => {
   const { id } = req.params;
-  if (!id) {
-    throw new ApiError(401, "id is required");
-  }
-  const data = await variant.findById(id);
-  if (!data) {
-    throw new ApiError(400, "variant not found");
-  }
-  return res.status(200).json(new ApiResponse(200, data, "variant found"));
+  const variantData = await variant.findById(id);
+  if (!variantData) throw new ApiError(400, "Variant not found");
+
+  res.status(200).json(new ApiResponse(200, variantData, "Variant found"));
 });
-//delete varient
-const deleteVariant = asynchandling(async (req, res) => {
+
+const deleteVariant = asyncHandling(async (req, res) => {
   const { id } = req.params;
-  if (!id) {
-    throw new ApiError(401, "id is required");
-  }
-  const data = await variant.findById(id);
-  if (!data) {
-    throw new ApiError(400, "variant not found");
-  }
-  const deleted = await variant.findByIdAndDelete(id);
-  if (!deleted) {
-    throw new ApiError(400, "something went wrong while deleting the variant");
-  }
-  return res.status(200).json(new ApiResponse(200, deleted, "variant deleted"));
+  const deletedVariant = await variant.findByIdAndDelete(id);
+  if (!deletedVariant)
+    throw new ApiError(400, "Something went wrong while deleting the variant");
+
+  res.status(200).json(new ApiResponse(200, deletedVariant, "Variant deleted"));
 });
+
+const updateVariant = asyncHandling(async (req, res) => {
+  const { id, name, sku, additional_cost, stock_count } = req.body;
+  validateVariantData(name, sku, additional_cost, stock_count);
+
+  const updatedVariant = await variant.findByIdAndUpdate(
+    id,
+    { name, sku, additional_cost, stock_count },
+    { new: true }
+  );
+  if (!updatedVariant)
+    throw new ApiError(400, "Something went wrong while updating the variant");
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, updatedVariant, "Variant updated successfully"));
+});
+
+export { addVariant, getVariant, deleteVariant, updateVariant };
