@@ -12,7 +12,8 @@ const addProduct = asynchandling(async (req, res) => {
   const data = await Product.find({
     $or: [{ title }, { description }],
   });
-  if (data) {
+  console.log(data);
+  if (data.length > 0) {
     throw new ApiError(
       400,
       "product with same name and description alredy exists"
