@@ -13,8 +13,7 @@ This project uses environment variables for configuration. These are loaded from
 ```env
 PORT=portnumber
 URL=mongodburl
-
-
+```
 
 ### Prerequisites
 
